@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    // 允许解析 *.vue 文件
+    "resolveJsonModule": true,
+    // 开启模块解析
+    "module": "esnext",
+    "moduleResolution": "node",
+    // 包含的文件或目录，确保能找到上述的类型声明文件
+    "include": ["src/**/*", "shims-vue.d.ts"],
+    "lib": [
+      "decorators",
+      "dom",
+      "es5",
+      "es2015",
+      "scripthost",
+      "es2015.promise"
+    ],
+    "allowSyntheticDefaultImports": true
+  }
+}
