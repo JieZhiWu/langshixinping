@@ -18,10 +18,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
- * @author: shayu
- * @date: 2022/12/11
- * @ClassName: yupao-backend01
- * @Description:        数据预热
+ *  数据预热
  */
 
 @Component
@@ -49,7 +46,8 @@ public class PreCacheJob {
                 //查数据库
                 QueryWrapper<User> queryWrapper = new QueryWrapper<>();
                 Page<User> userPage = userService.page(new Page<>(1,20),queryWrapper);
-                String redisKey = String.format("langshi:user:recommend:%s",mainUserList);
+//                String redisKey = String.format("langshi:user:recommend:%s",mainUserList);
+                String redisKey = String.format("langshi:user:recommend",mainUserList);
                 ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
                 //写缓存,30s过期
                 try {

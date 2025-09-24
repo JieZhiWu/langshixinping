@@ -1,6 +1,7 @@
 package com.jiewu.driftbottle.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jiewu.driftbottle.common.BaseResponse;
 import com.jiewu.driftbottle.common.DeleteRequest;
@@ -85,8 +86,63 @@ public class TeamController {
      *
      * @param teamQuery 队伍查询条件
      * @param request   HTTP请求对象，用于获取当前登录用户信息
-     * @return 我加入的队伍列表
+     * @return 我加入的队伍列表（包含加入状态、是否创建者、已加入人数）
      */
+    @GetMapping("/list/my/join")
+    public BaseResponse<List<TeamUserVO>> listMyJoinTeams(TeamQuery teamQuery, HttpServletRequest request) {
+        if (request == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User loginUser = userService.getLoginUser(request);
+        boolean isAdmin = userService.isAdmin(request);
+
+        // 1. 查询当前用户加入的 UserTeam 记录
+        QueryWrapper<UserTeam> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("userId", loginUser.getId());
+        List<UserTeam> userTeamList = userTeamService.list(queryWrapper);
+
+        if (CollectionUtils.isEmpty(userTeamList)) {
+            return ResultUtils.success(new ArrayList<>());
+        }
+
+        // 2. 提取队伍 ID 列表
+        Set<Long> joinTeamIdSet = userTeamList.stream()
+                .map(UserTeam::getTeamId)
+                .collect(Collectors.toSet());
+
+        teamQuery.setIdList(new ArrayList<>(joinTeamIdSet));
+
+        // 3. 查询队伍信息
+        List<TeamUserVO> teamList = teamService.listTeams(teamQuery, isAdmin);
+        List<Long> teamIdList = teamList.stream().map(TeamUserVO::getId).collect(Collectors.toList());
+
+        // 4. 查询这些队伍的成员情况
+        QueryWrapper<UserTeam> userTeamJoinQueryWrapper = new QueryWrapper<>();
+        userTeamJoinQueryWrapper.in("teamId", teamIdList);
+        List<UserTeam> allUserTeamList = userTeamService.list(userTeamJoinQueryWrapper);
+
+        // 队伍 ID -> 加入该队伍的用户列表
+        Map<Long, List<UserTeam>> teamIdUserTeamList = allUserTeamList.stream()
+                .collect(Collectors.groupingBy(UserTeam::getTeamId));
+
+        // 5. 设置额外状态
+        teamList.forEach(team -> {
+            // 是否已加入（必然 true，因为就是“我加入的队伍”）
+            team.setHasJoin(joinTeamIdSet.contains(team.getId()));
+
+            // 是否为当前用户创建
+            boolean isCreator = loginUser.getId()==team.getUserId();
+            team.setCreator(isCreator);
+
+            // 队伍已加入人数
+            int hasJoinNum = teamIdUserTeamList.getOrDefault(team.getId(), new ArrayList<>()).size();
+            team.setHasJoinNum(hasJoinNum);
+        });
+
+        return ResultUtils.success(teamList);
+    }
+
+/*
     @GetMapping("/list/my/join")
     public BaseResponse<List<TeamUserVO>> listMyJoinTeams(TeamQuery teamQuery, HttpServletRequest request) {
         if (request == null) {
@@ -97,8 +153,7 @@ public class TeamController {
         QueryWrapper<UserTeam> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("userId", loginUser.getId());
         List<UserTeam> userTeamList = userTeamService.list(queryWrapper);
-        // 取出不重复的队伍 ID
-        // 1 => 1, 2, 3     2 => 1, 3
+        // 取出不重复的队伍 ID  1 => 1, 2, 3     2 => 1, 3
         Map<Long, List<UserTeam>> listMap = userTeamList.stream()
                 .collect(Collectors.groupingBy(UserTeam::getTeamId));
         ArrayList<Long> idList = new ArrayList<>(listMap.keySet());
@@ -106,6 +161,7 @@ public class TeamController {
         List<TeamUserVO> teamList = teamService.listTeams(teamQuery, isAdmin);
         return ResultUtils.success(teamList);
     }
+*/
 
     @GetMapping("/get")
     public BaseResponse<Team> getTeamById(@RequestBody long id) {
@@ -142,15 +198,22 @@ public BaseResponse<List<TeamUserVO>> listTeams(TeamQuery teamQuery, HttpServlet
     // 2、判断当前用户是否已加入队伍
     QueryWrapper<UserTeam> userTeamQueryWrapper = new QueryWrapper<>();
     try {
+        // 已加入的队伍 id 集合
         User loginUser = userService.getLoginUser(request);
+        Long loginUserId = loginUser.getId(); // 登录用户 ID
         userTeamQueryWrapper.eq("userId", loginUser.getId());
         userTeamQueryWrapper.in("teamId", teamIdList);
         List<UserTeam> userTeamList = userTeamService.list(userTeamQueryWrapper);
-        // 已加入的队伍 id 集合
         Set<Long> hasJoinTeamIdSet = userTeamList.stream().map(UserTeam::getTeamId).collect(Collectors.toSet());
+        // 2.2 新增：判断是否为创建者 （核心逻辑）
         teamList.forEach(team -> {
+            // 标记是否已加入
             boolean hasJoin = hasJoinTeamIdSet.contains(team.getId());
             team.setHasJoin(hasJoin);
+
+            // 标记是否为当前用户创建（对比队伍的 userId 和登录用户 ID）
+            boolean isCreator = loginUserId.equals(team.getUserId()); // 关键：队伍的创建者 ID == 登录用户 ID
+            team.setCreator(isCreator);
         });
     }catch (Exception e){}
     QueryWrapper<UserTeam> userTeamJoinQueryWrapper = new QueryWrapper<>();

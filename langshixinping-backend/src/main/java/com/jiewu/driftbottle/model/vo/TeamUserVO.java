@@ -41,6 +41,11 @@ public class TeamUserVO implements Serializable {
     private Long userId;
 
     /**
+     * 是否为当前用户创建的队伍
+     */
+    private boolean isCreator;
+
+    /**
      * 0 - 公开，1 - 私有，2 - 加密
      */
     private Integer status;
@@ -68,5 +73,5 @@ public class TeamUserVO implements Serializable {
     /**
      * 是否已加入队伍
      */
-    private boolean hasJoin = false;
+    private Boolean hasJoin = false;
 }

@@ -2,6 +2,7 @@ package com.jiewu.driftbottle.service;
 
 import com.jiewu.driftbottle.model.domain.User;
 import com.baomidou.mybatisplus.extension.service.IService;
+import org.apache.commons.lang3.tuple.Pair;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -71,6 +72,10 @@ public interface UserService extends IService<User> {
      */
     int userLogout(HttpServletRequest request);
 
+    List<Long> roughFilterByTags(Long loginUserId, int limit);
+
+    List<Pair<Long, Double>> calcAccurateSimilarity(Long loginUserId, double rate);
+
     /**
      * 根据标签搜索用户
      *
@@ -89,6 +94,16 @@ public interface UserService extends IService<User> {
     int updateUser(User user, User loginUser);
 
     /**
+     * 默认匹配用户
+     *
+     * @param num
+     * @param rate
+     * @param loginUser
+     * @return
+     */
+    List<User> defaultMatchUsers(long num, double rate, User loginUser);
+
+    /**
      * 最佳匹配用户
      *
      * @param num
@@ -105,5 +120,8 @@ public interface UserService extends IService<User> {
      * @return
      */
     List<User> partMatchUsers(long num,double rate, User loginUser);
+    //    List<User> partMatchUsers(long pageSize, long pageNum, double rate, User loginUser);
+
+    List<User> getUsersByIds(List<Long> userIds);
 
 }

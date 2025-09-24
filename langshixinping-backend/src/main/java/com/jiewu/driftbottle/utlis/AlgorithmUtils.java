@@ -1,6 +1,7 @@
 package com.jiewu.driftbottle.utlis;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
 * 算法工具类
@@ -265,4 +266,49 @@ public class AlgorithmUtils {
         }
         return Math.sqrt(sum);
     }
+
+    /**
+     * BitSet 版本的余弦相似度算法
+     * 基于标签的词袋模型
+     *
+     * @param tags1 第1个标签列表
+     * @param tags2 第2个标签列表
+     * @return 相似度值（0-1之间）
+     */
+    // 全局字典（标签 -> 索引）
+    private static final Map<String, Integer> tagIndexMap = new ConcurrentHashMap<>();
+    private static int currentIndex = 0;
+
+    /**
+     * 把标签列表转换成 BitSet
+     */
+    public static BitSet toBitSet(List<String> tags) {
+        BitSet bitSet = new BitSet();
+        for (String tag : tags) {
+            int index = tagIndexMap.computeIfAbsent(tag, k -> currentIndex++);
+            bitSet.set(index);
+        }
+        return bitSet;
+    }
+
+    /**
+     * BitSet 版本余弦相似度
+     */
+    public static double cosineSimilarity(BitSet bs1, BitSet bs2) {
+        // 交集
+        BitSet intersection = (BitSet) bs1.clone();
+        intersection.and(bs2);
+
+        // 各自大小
+        int dotProduct = intersection.cardinality();
+        int normA = bs1.cardinality();
+        int normB = bs2.cardinality();
+
+        if (normA == 0 || normB == 0) {
+            return 0.0;
+        }
+
+        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+    }
+
 }

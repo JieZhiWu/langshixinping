@@ -1,6 +1,7 @@
 package com.jiewu.driftbottle.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jiewu.driftbottle.common.BaseResponse;
 import com.jiewu.driftbottle.common.ErrorCode;
@@ -18,8 +19,8 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -30,7 +31,7 @@ import static com.jiewu.driftbottle.contant.UserConstant.USER_LOGIN_STATE;
  */
 @RestController
 @RequestMapping("/user")
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 @Slf4j
 public class UserController {
 
@@ -98,6 +99,53 @@ public class UserController {
         return ResultUtils.success(result);
     }
 
+    @GetMapping("/recommend")
+    public BaseResponse<List<User>> recommendUsers() {
+        String redisKey = "langshi:user:recommend";
+        ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
+
+        // 1. 缓存存在，直接返回
+        List<User> cachedUsers = (List<User>) valueOperations.get(redisKey);
+        if (cachedUsers != null && !cachedUsers.isEmpty()) {
+            return ResultUtils.success(cachedUsers);
+        }
+
+        // 2. 缓存不存在，走随机ID查询
+        // 2.1 获取最大ID
+        Long maxId = userService.getBaseMapper()
+                .selectObjs(new QueryWrapper<User>().select("MAX(id)"))
+                .stream()
+                .map(o -> (Long) o)
+                .findFirst()
+                .orElse(0L);
+
+        if (maxId == 0) {
+            return ResultUtils.success(Collections.emptyList());
+        }
+
+        Random random = new Random();
+        Set<Long> randomIds = new HashSet<>();
+        while (randomIds.size() < 10) {
+            long id = 1 + ThreadLocalRandom.current().nextLong(maxId);
+            randomIds.add(id);
+        }
+
+        // 2.2 查询用户
+        List<User> users = userService.list(
+                new QueryWrapper<User>().in("id", randomIds)
+        );
+
+        // 3. 查询结果写入缓存（兜底60秒）
+        try {
+            valueOperations.set(redisKey, users, 60L, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            // log.error("redis set key error", e);
+        }
+
+        return ResultUtils.success(users);
+    }
+
+
     /**
      * 获取当前用户
      *
@@ -150,27 +198,6 @@ public class UserController {
         return ResultUtils.success(result);
     }
 
-    @GetMapping("/recommend")
-    public BaseResponse<Page<User>> recommendUsers(long pageSize, long pageNum, HttpServletRequest request){
-//        User loginUser = userService.getLoginUser(request);
-        String redisKey = String.format("langshi:user:recommend");
-        ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
-        // 缓存存在, 直接返回
-        Page<User> userPage = (Page<User>)valueOperations.get(redisKey);
-//        if (userPage != null) {
-//            return ResultUtils.success(userPage);
-//        }
-        // 缓存不存在, 查询数据库
-        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        Page<User> userList = userService.page(new Page<>(pageNum, pageSize), queryWrapper);
-        // (未监测到缓存) 添加到缓存
-        try {
-            valueOperations.set(redisKey,userList, 60L, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            log.error("redis set key error", e);
-        }
-        return ResultUtils.success(userList);
-    }
 
     @PostMapping("/delete")
     public BaseResponse<Boolean> deleteUser(@RequestBody long id, HttpServletRequest request) {
@@ -187,31 +214,28 @@ public class UserController {
     /**
      * 获取最匹配的用户
      *
-     * @param num 返回匹配数量
-     * @param type 0:最佳匹配用户 1:随机用户 (n% 相似的)
-     * @param request 请求
-     * @return 最匹配的用户
      */
     @GetMapping("/match")
-    public BaseResponse<List<User>> matchUsers(long num, Integer type, Double rate, HttpServletRequest request) {
+    public BaseResponse<List<User>> matchUsers(long num, Double rate, HttpServletRequest request) {
         if (num <= 0 || num > 20) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         User loginUser = userService.getLoginUser(request);
-        if (type == 0) {
+//        if (type == 0) {
 //            response = userService.bestMatchUsers(num, loginUser);
-            return ResultUtils.success(userService.partMatchUsers(num, rate, loginUser));
-        } else if (type == 1) {
-/*
-            if (size == null) {
-                throw new BusinessException(ErrorCode.PARAMS_ERROR);
-            }
-            response = userService.partMatchUsers(num, size, loginUser);
-*/
+//            return ResultUtils.success(userService.partMatchUsers(num, rate, loginUser));
+//            return ResultUtils.success(userService.partMatchUsers(pageSize, pageNum, rate, loginUser));
+//        } else if (type == 1) {
+
+//            if (size == null) {
+//                throw new BusinessException(ErrorCode.PARAMS_ERROR);
+//            }
+//            response = userService.partMatchUsers(num, size, loginUser);
+
             return ResultUtils.success(userService.partMatchUsers(num,rate, loginUser));
-        }else {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR);
-        }
+//        }else {
+//            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+//        }
     }
 
 }
