@@ -25,18 +25,25 @@ myAxios.interceptors.request.use(function (config) {
 });
 
 // 添加响应拦截器
-myAxios.interceptors.response.use(function (response) {
-    // 对响应数据做点什么
-    // console.log("我收到你的响应了,",response)
-    // 未登录则跳转登录页
-    if (response?.data?.code === 40100) {
-        const redirectUrl = window.location.href;
-        window.location.href = `/user/login?redirect=${redirectUrl}`;
+myAxios.interceptors.response.use(
+    function (response) {
+        // 检查是否需要跳过拦截（通过请求配置中的自定义属性）
+        const skipAuth = response.config.skipAuth;
+        if (!skipAuth && response?.data?.code === 40100) {
+            const redirectUrl = encodeURIComponent(window.location.href);
+            window.location.href = `/user/login?redirect=${redirectUrl}`;
+        }
+        return response.data;
+    },
+    function (error) {
+        // 错误响应也需要判断是否跳过拦截
+        const skipAuth = error.config?.skipAuth;
+        if (!skipAuth && error.response?.data?.code === 40100) {
+            const redirectUrl = encodeURIComponent(window.location.href);
+            window.location.href = `/user/login?redirect=${redirectUrl}`;
+        }
+        return Promise.reject(error);
     }
-    return response.data;
-}, function (error) {
-    // 对响应错误做点什么
-    return Promise.reject(error);
-});
+);
 
 export default myAxios;

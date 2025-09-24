@@ -4,10 +4,22 @@ import {onMounted, ref} from "vue";
 import {getCurrentUser} from "../services/user";
 import {showSuccessToast, showFailToast, showToast, Toast} from "vant";
 import myAxios from "../plugins/myAxios.js";
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
+import {UserType} from "../models/user";
 
+// 扩展 Day.js 时区功能
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
-const user = ref([]);
+const user = ref<UserType[]>([]);
 const router = useRouter();
+
+// 格式化函数：将 UTC 时间转换为本地时区的 "年-月-日 时:分:秒"
+const formattedRegisterTime = dayjs(user.createTime)
+    .tz() // 转换为本地时区
+    .format('YYYY-MM-DD');
 
 // 方法：获取用户信息
 const fetchUserInfo = async () => {
@@ -30,16 +42,6 @@ onMounted( async() => {
 });
 
 
-// onMounted(async () =>{
-//   user.value = await getCurrentUser();
-// if(res.code === 0){
-//   user.value = res.data;
-//   showSuccessToast('获取用户信息成功');
-// }else {
-//   showFailToast('获取用户信息失败');
-// }
-// })
-
 const toEdit = (editKey: string, editName: string, currentValue: string) => {
   router.push({
     path: '/user/edit',
@@ -53,16 +55,10 @@ const toEdit = (editKey: string, editName: string, currentValue: string) => {
 </script>
 
 <template>
-  <van-cell title="昵称" is-link to="/user/edit" :value="user.username" @click="toEdit('username', '昵称', user.username)" />
-  <van-cell title="账号" :value="user.userAccount" />
-  <van-cell title="头像" is-link to="/user/edit" >
-    <img style="height: 48px" :src="user.avatarUrl">
-  </van-cell>
-  <van-cell title="性别" is-link to="/user/edit" :value="user.gender" @click="toEdit('gender', '性别', user.gender)"/>
-  <van-cell title="电话" is-link to="/user/edit" :value="user.phone" @click="toEdit('phone', '电话', user.phone)"/>
-  <van-cell title="邮箱" is-link to="/user/edit" :value="user.email" @click="toEdit('email', '邮箱', user.email)"/>
-  <van-cell title="‘梦' 游编号" :value="user.planetCode" />
-  <van-cell title="注册时间" :value="user.createTime" />
+<!--  <van-cell title="地区" is-link to="/user/edit" :value="user.username" @click="toEdit('username', '地区', user.username)" />-->
+  <van-cell title="简介" is-link to="/user/edit" :value="user.profile" @click="toEdit('profile', '简介', user.profile)" />
+  <van-cell title="兴趣标签" is-link to="/user/tag" :value="user.tags" />
+  <van-cell title="注册时间" :value="formattedRegisterTime" />
 </template>
 
 <style scoped>

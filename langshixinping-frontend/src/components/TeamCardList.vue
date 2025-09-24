@@ -19,21 +19,21 @@ const props = withDefaults(defineProps<TeamCardListProps>(), {
 const showPasswordDialog = ref(false);
 
 const password = ref('');
+
 const joinTeamId = ref(0);
 const currentUser = ref();
 const router = useRouter();
-
 // const VanDialog = Dialog.Component;
+
+onMounted(async () => {
+  currentUser.value = await getCurrentUser();
+})
 
 const preJoinTeam = (team : TeamType) => {
 
   joinTeamId.value = team.id;
   if (team.status === 0) {
     doJoinTeam()
-    onMounted(async () => {
-
-      currentUser.value = await getCurrentUser();
-    })
   } else {
     showPasswordDialog.value = true;
   }
